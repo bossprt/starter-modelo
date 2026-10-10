@@ -18,6 +18,17 @@ Agentes começam por [AGENTS.md](AGENTS.md).
 | 8 | Preencher `docs/PRODUCT.md`, escolher a stack (ADR 0001, o agente pesquisa e propõe) e trocar a `TASK-001` de exemplo pela primeira tarefa real | repositório (PRs) | você decide, agente escreve |
 | 9 | Rotina: `npm run uso` antes de cada tarefa; `npm run trafego` toda semana; `npm run status` a qualquer momento | seu terminal | você ou o agente |
 
+## Grafo do código (Graphify, opcional)
+
+- **Quando:** quando o projeto já tiver código para navegar (não vale a pena num projeto recém-criado).
+  Economia de tokens neste modelo: **não medida** — medir quando houver um projeto com código suficiente.
+- **Como:** `graphify update .` na pasta do projeto (seu terminal; extrai o código por AST, sem LLM e sem chave
+  de API). Gera `graphify-out/` (ignorado pelo git). Rode de novo depois de mudanças grandes, ou instale o hook
+  de git local `graphify hook install` para atualizar após cada commit.
+- **Uso pelos agentes:** com o grafo presente, o CLAUDE.md manda `graphify query` antes da busca nativa; as
+  sessões isoladas (`scripts/sessao-agente.mjs`) já têm permissão para `graphify query/path/explain`.
+- Pré-requisito: Graphify instalado na máquina (`graphify --help`).
+
 ## Avisos
 
 - **Público por padrão.** Sem segredos, dados de cliente ou conteúdo vendável no repositório

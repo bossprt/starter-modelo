@@ -55,3 +55,5 @@ Configurado em `.github/workflows/validate.yml`:
   263.180 tokens de entrada sem isolamento, 20.409 com isolamento (−92%). Meça no seu projeto com o próprio script.
 - Revisão do Codex: uma por tarefa, antes do push. Cada revisão consome de cerca de 30 mil a 270 mil tokens.
 - `--bare` do Claude Code exige chave de API (cobrança separada): não use sem decisão do dono.
+- Graphify (grafo do código, local e sem LLM): economia de tokens **não medida** neste modelo. Não afirmar
+  economia até haver medição num projeto com código suficiente (mesma pergunta com e sem grafo).
