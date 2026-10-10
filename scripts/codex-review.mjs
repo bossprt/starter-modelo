@@ -13,7 +13,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { DIFF_EXCLUDES, adrDecision, buildReviewPrompt, parseMaxTokens, preflight, summarizeCodexEvents } from './lib/review-input.mjs';
+import { DIFF_EXCLUDES, adrDecision, buildReviewPrompt, parseMaxTokens, preflight, summarizeCodexEvents, taskReviewError } from './lib/review-input.mjs';
 import { buildRecordMessage, parseVerdict } from './lib/review-record.mjs';
 import { QUOTA_STOP_PERCENT, lastCodexRateLimits } from './lib/usage.mjs';
 
@@ -68,6 +68,16 @@ const baseSha = git(['rev-parse', base]);
 
 // Entrada da revisão: diff (sem arquivos gerados), tarefa, arquitetura e a seção "Decisão" de cada ADR.
 const readText = (path) => (existsSync(path) ? readFileSync(path, 'utf8') : '');
+// --task precisa apontar para uma tarefa existente e com conteúdo (critérios de aceite); senão, nada é revisado.
+const taskPath = task ? join('docs', 'tasks', `${task}.md`) : null;
+const taskContent = taskPath && existsSync(taskPath) ? readFileSync(taskPath, 'utf8') : null;
+if (task) {
+  const error = taskReviewError(task, taskPath, taskContent);
+  if (error) {
+    console.error(`codex-review: ${error}. Nada revisado.`);
+    process.exit(2);
+  }
+}
 const diff = git(['diff', '--no-color', `${base}...HEAD`, '--', '.', ...DIFF_EXCLUDES]);
 const diffStat = git(['diff', '--shortstat', `${base}...HEAD`, '--', '.', ...DIFF_EXCLUDES]);
 const adrDir = join('docs', 'decisions');
@@ -77,7 +87,7 @@ const adrs = existsSync(adrDir)
 const prompt = buildReviewPrompt({
   base,
   diff,
-  task: task ? { id: task, content: readText(join('docs', 'tasks', `${task}.md`)) } : null,
+  task: task ? { id: task, content: taskContent } : null,
   architecture: readText(join('docs', 'ARCHITECTURE.md')),
   adrs,
 });

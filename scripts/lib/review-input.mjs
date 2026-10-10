@@ -98,3 +98,14 @@ export function summarizeCodexEvents(stdout) {
   if (incomplete) summary.usage = null;
   return summary;
 }
+
+/**
+ * Tarefa informada em --task precisa existir e ter conteúdo; senão a revisão não confere critérios de aceite.
+ * @returns {string | null} mensagem de erro, ou null se a tarefa serve para a revisão
+ */
+export function taskReviewError(id, path, content) {
+  if (!/^TASK-\d{3}$/.test(String(id ?? ''))) return `--task inválido: "${id}" (formato TASK-NNN)`;
+  if (content === null) return `tarefa ${id} não encontrada em ${path}`;
+  if (String(content).trim() === '') return `tarefa ${id} vazia em ${path}`;
+  return null;
+}

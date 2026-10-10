@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CODEX_BASE_TOKENS, DEFAULT_MAX_TOKENS, adrDecision, buildReviewPrompt, estimateTokens, parseMaxTokens, preflight, summarizeCodexEvents } from '../lib/review-input.mjs';
+import { CODEX_BASE_TOKENS, DEFAULT_MAX_TOKENS, adrDecision, buildReviewPrompt, estimateTokens, parseMaxTokens, preflight, summarizeCodexEvents, taskReviewError } from '../lib/review-input.mjs';
 
 describe('estimateTokens', () => {
   it('~3 caracteres por token, arredondando para cima', () => {
@@ -80,5 +80,21 @@ describe('summarizeCodexEvents', () => {
   });
   it('sem turn.completed: uso nulo (consumo não informado)', () => {
     expect(summarizeCodexEvents(line({ type: 'item.completed', item: { type: 'agent_message', text: 'x' } }))).toMatchObject({ usage: null, turns: 0 });
+  });
+});
+
+describe('taskReviewError', () => {
+  it('tarefa existente e com conteúdo serve', () => {
+    expect(taskReviewError('TASK-001', 'docs/tasks/TASK-001.md', '---\nid: TASK-001\n---\ncritérios')).toBeNull();
+  });
+  it('arquivo inexistente encerra antes de chamar o Codex', () => {
+    expect(taskReviewError('TASK-009', 'docs/tasks/TASK-009.md', null)).toBe('tarefa TASK-009 não encontrada em docs/tasks/TASK-009.md');
+  });
+  it('arquivo vazio ou só espaços também encerra', () => {
+    expect(taskReviewError('TASK-001', 'docs/tasks/TASK-001.md', '  \n')).toContain('vazia');
+  });
+  it('id fora do formato TASK-NNN é recusado', () => {
+    expect(taskReviewError('../segredo', 'x', 'conteúdo')).toContain('--task inválido');
+    expect(taskReviewError('TASK-1', 'x', 'conteúdo')).toContain('--task inválido');
   });
 });
