@@ -3,6 +3,7 @@
 // do usuário (plugins, skills, MCP e hooks globais), para não reler ~40 mil tokens de contexto a cada turno.
 // Medição (2026-10-10): mesma pergunta da Etapa 6, 263.180 tokens de entrada sem isolamento contra 20.409 com.
 // Uso: node scripts/sessao-agente.mjs "<prompt>" [--ferramentas Bash,Read,Edit,Write,Glob,Grep] [--permitir "<regra>"...]
+// Sempre permite graphify query/path/explain (exige Bash em --ferramentas).
 // Grava o stream-json em .agent-logs/ (ignorado pelo git) e imprime tokens, custo e cota do Claude.
 
 import { spawnSync } from 'node:child_process';
@@ -21,7 +22,9 @@ if (!prompt) {
 }
 const toolsIndex = args.indexOf('--ferramentas');
 const tools = toolsIndex > -1 ? args[toolsIndex + 1] : 'Bash,Read,Edit,Write,Glob,Grep';
-const allow = args.flatMap((arg, index) => (args[index - 1] === '--permitir' ? [arg] : []));
+// Graphify (CLAUDE.md): a isolação desliga as skills, mas a CLI segue no PATH; libera só os comandos de leitura.
+const GRAPHIFY_READ = ['Bash(graphify query:*)', 'Bash(graphify path:*)', 'Bash(graphify explain:*)'];
+const allow = [...GRAPHIFY_READ, ...args.flatMap((arg, index) => (args[index - 1] === '--permitir' ? [arg] : []))];
 
 const claudeArgs = [
   '-p', prompt,
@@ -33,7 +36,7 @@ const claudeArgs = [
   '--disable-slash-commands',
   '--tools', tools,
   '--permission-mode', 'acceptEdits',
-  ...(allow.length > 0 ? ['--allowedTools', ...allow] : []),
+  '--allowedTools', ...allow,
 ];
 const result = spawnSync('claude', claudeArgs, { cwd: ROOT, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
 if (result.error) {
