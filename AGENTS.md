@@ -56,8 +56,8 @@ Regras gerais:
 6. Commit (com `Agente:`) e revisão do Codex **antes do push**, em segundo plano (demora minutos):
    `node scripts/codex-review.mjs --task TASK-NNN --registrar`. Com defeito real: corrigir, commitar
    e revisar de novo (o registro só vale no topo). Registrar o descartado e o porquê no PR.
-   Codex falhou: "revisão: não realizada" + causa. Código 4 = acima do teto (ADR 0006): pendência aberta,
-   não insista; a tarefa não é integrada automaticamente.
+   Codex falhou: "revisão: não realizada" + causa. Código 4 = acima do teto (ADR 0006): abra pendência
+   (dividir o PR ou o dono subir o teto) e não insista; a tarefa não é integrada automaticamente.
 7. Um push, PR com "TASK-NNN" no título; corpo com critérios atendidos, seção "Revisão"
    (apontado, corrigido, descartado) e linhas `Executor:` / `Revisor:`.
 8. Integrar (squash, apagar branch) só nas condições da regra de coordenação.

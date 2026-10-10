@@ -5,8 +5,8 @@
 // Sem --registrar: só imprime a revisão. Com --registrar: grava o resultado num commit vazio no topo da
 // branch (trailers Codex-Review e Codex-Review-Tree), que o CI (revisao-registrada) e o npm run status verificam.
 // Teto: DEFAULT_MAX_TOKENS em scripts/lib/review-input.mjs; o dono pode subir para UMA revisão com
-// CODEX_REVIEW_MAX_TOKENS=<n>. Acima do teto (estimado antes ou medido depois): nada é registrado,
-// abre-se pendência e o script sai com código 4.
+// CODEX_REVIEW_MAX_TOKENS=<n>. Acima do teto (estimado antes ou medido depois): nada é registrado e o
+// script para com código 4; o agente abre a pendência.
 // Sempre imprime tokens e a cota do Codex (janela de 5h e semanal), para docs/metrics/sessions.md e gastos.md.
 
 import { spawnSync } from 'node:child_process';
@@ -92,36 +92,11 @@ const prompt = buildReviewPrompt({
   adrs,
 });
 
-// Acima do teto: não registra; abre pendência (docs/regras/gastos.md) e sai com código 4.
+// Acima do teto: não registra e para com código 4. Quem abre a pendência é o agente (AGENTS.md, ADR 0006).
 function overCap(kind, tokens) {
-  const branch = git(['rev-parse', '--abbrev-ref', 'HEAD']);
-  const rerun = `CODEX_REVIEW_MAX_TOKENS=<n> node scripts/codex-review.mjs${task ? ` --task ${task}` : ''} --registrar`;
-  console.error(`PARAR: revisão do Codex ${kind} ${tokens} tokens, acima do teto de ${maxTokens}. Nada registrado.`);
-  const body = [
-    '## O que preciso que você decida',
-    '',
-    `A revisão do Codex da branch "${branch}" ${kind} **${tokens} tokens**, acima do teto de **${maxTokens}** (ADR 0006).`,
-    `Diff: ${diffStat || 'não disponível'}.`,
-    '',
-    '## Opções',
-    '',
-    '- **A. Dividir o PR** em partes menores, cada uma revisada dentro do teto.',
-    `- **B. Subir o teto só para esta revisão:** "${rerun}" (consome mais cota do Codex).`,
-    '- **C. Seguir sem revisão do Codex:** o PR não fica integrável (revisao-registrada é obrigatório).',
-    '',
-    '## Recomendação',
-    '',
-    'A, salvo quando o diff for indivisível (ex.: renomeação em massa); nesse caso B com o valor estimado.',
-    '',
-    '## O que fica bloqueado',
-    '',
-    'A integração desta branch.',
-    ...(task ? ['', `Bloqueia: ${task}`] : []),
-  ].join('\n');
-  const issue = spawnSync('gh', ['issue', 'create', '--label', 'depende-de-mim', '--title', `Revisão do Codex acima do teto (${tokens} > ${maxTokens}): ${branch}`, '--body-file', '-'], { encoding: 'utf8', input: body });
-  console.error(issue.status === 0
-    ? `Pendência aberta: ${issue.stdout.trim()}`
-    : `Não foi possível abrir a pendência (${(issue.stderr ?? '').trim()}); abra manualmente com os números acima.`);
+  const rerun = `CODEX_REVIEW_MAX_TOKENS=<n> node scripts/codex-review.mjs --base ${base}${task ? ` --task ${task}` : ''}${register ? ' --registrar' : ''}`;
+  console.error(`PARAR: revisão do Codex ${kind} ${tokens} tokens, acima do teto de ${maxTokens} (ADR 0006). Nada registrado.`);
+  console.error(`Diff: ${diffStat || 'não disponível'}. Opções para a pendência: dividir o PR; ou o dono sobe o teto desta revisão: ${rerun}`);
   process.exit(4);
 }
 
@@ -144,14 +119,16 @@ const result = spawnSync(process.execPath, args, { encoding: 'utf8', input: prom
 // Uso somado de todos os turnos; ferramentas = só tipos reais de ferramenta (ADR 0006).
 const { threadId, answer, usage, toolCalls, turns } = summarizeCodexEvents(result.stdout);
 
+// O teto vem antes da falha do processo: estouro sempre sai com código 4, mesmo se o Codex falhou.
+const tokens = usage ? usage.input_tokens + usage.output_tokens : null;
+if (tokens !== null && tokens > maxTokens) overCap('usou', tokens);
+
 if (result.status !== 0 || answer.trim() === '') {
   console.error(`codex-review: Codex falhou (código ${result.status}). Registre "revisão: não realizada".`);
   console.error(`${result.stderr ?? ''}`.split('\n').slice(-15).join('\n'));
   process.exit(1);
 }
 
-const tokens = usage ? usage.input_tokens + usage.output_tokens : null;
-if (tokens !== null && tokens > maxTokens) overCap('usou', tokens);
 
 // Cota do Codex: último rate_limits do arquivo da sessão (~/.codex/sessions/AAAA/MM/DD/rollout-*-<thread>.jsonl).
 function readRateLimits(id) {

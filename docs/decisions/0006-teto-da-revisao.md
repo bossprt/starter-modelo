@@ -23,8 +23,9 @@ No piloto, as revisões custaram de 12 mil a 557 mil tokens. A diferença veio d
    - Antes de chamar o Codex, o script estima a entrada (~3 caracteres por token, mais a base fixa). Acima do teto,
      não chama.
    - Depois, confere o uso real. Acima do teto, não registra.
-   - Nos dois casos, abre pendência `depende-de-mim` (dividir o PR, subir o teto para uma revisão ou seguir sem
-     revisão) e sai com código 4.
+   - Nos dois casos, para com mensagem clara (tokens, teto, diff e o comando para repetir com teto maior) e
+     código 4. **Quem abre a pendência é o agente**, como nos outros casos (dividir o PR ou o dono subir o teto).
+     O teto é conferido antes de tratar falha do processo: estouro sempre dá código 4.
 4. Subir o teto de uma revisão é decisão do dono: `CODEX_REVIEW_MAX_TOKENS=<n>`. Mudar o padrão é PR de starter.
 
 ## Consequências

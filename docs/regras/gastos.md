@@ -54,7 +54,7 @@ Configurado em `.github/workflows/validate.yml`:
   Ele isola a configuração global (plugins, skills, MCP, hooks). Evidência do piloto (2026-10-10), mesma pergunta:
   263.180 tokens de entrada sem isolamento, 20.409 com isolamento (−92%). Meça no seu projeto com o próprio script.
 - Revisão do Codex: uma por tarefa, antes do push, **só sobre o diff e sem ferramentas**, com teto de 60.000 tokens
-  (ADR 0006). Estourou (estimado ou medido): o script não registra, abre pendência e sai com código 4.
+  (ADR 0006). Estourou (estimado ou medido): o script não registra e para com código 4; o agente abre a pendência.
 - `--bare` do Claude Code exige chave de API (cobrança separada): não use sem decisão do dono.
 - Graphify (grafo do código, local e sem LLM): economia de tokens **não medida** neste modelo. Não afirmar
   economia até haver medição num projeto com código suficiente (mesma pergunta com e sem grafo).
