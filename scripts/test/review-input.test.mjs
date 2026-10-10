@@ -61,7 +61,7 @@ describe('summarizeCodexEvents', () => {
       line({ type: 'item.completed', item: { type: 'agent_message', text: 'ok' } }),
       line({ type: 'turn.completed', usage: { input_tokens: 50, cached_input_tokens: 0, output_tokens: 1 } }),
     ].join('\n');
-    expect(summarizeCodexEvents(out)).toEqual({ threadId: 't1', answer: 'ok', usage: { input_tokens: 150, cached_input_tokens: 10, output_tokens: 6 }, toolCalls: [], turns: 2 });
+    expect(summarizeCodexEvents(out)).toEqual({ threadId: 't1', answer: 'ok', usage: { input_tokens: 150, cached_input_tokens: 10, output_tokens: 6 }, usageComplete: true, toolCalls: [], turns: 2 });
   });
   it('registra ferramenta real e ignora itens que não são ferramenta', () => {
     const out = [
@@ -73,13 +73,14 @@ describe('summarizeCodexEvents', () => {
     expect(summarizeCodexEvents(out).toolCalls).toEqual(['command_execution']);
   });
   it('turn.completed sem usage ou com consumo parcial: uso nulo, nunca zero', () => {
-    expect(summarizeCodexEvents(line({ type: 'turn.completed' }))).toMatchObject({ usage: null, turns: 1 });
-    expect(summarizeCodexEvents(line({ type: 'turn.completed', usage: { input_tokens: 10 } })).usage).toBeNull();
+    expect(summarizeCodexEvents(line({ type: 'turn.completed' }))).toMatchObject({ usage: null, usageComplete: false, turns: 1 });
+    expect(summarizeCodexEvents(line({ type: 'turn.completed', usage: { input_tokens: 10 } }))).toMatchObject({ usage: null, usageComplete: false });
     const mixed = [line({ type: 'turn.completed', usage: { input_tokens: 10, output_tokens: 1 } }), line({ type: 'turn.completed', usage: { input_tokens: 'x', output_tokens: 1 } })].join('\n');
-    expect(summarizeCodexEvents(mixed).usage).toBeNull();
+    // O total já medido é mantido (para o teto); a medição fica incompleta (impede o registro).
+    expect(summarizeCodexEvents(mixed)).toMatchObject({ usage: { input_tokens: 10, output_tokens: 1 }, usageComplete: false });
   });
   it('sem turn.completed: uso nulo (consumo não informado)', () => {
-    expect(summarizeCodexEvents(line({ type: 'item.completed', item: { type: 'agent_message', text: 'x' } }))).toMatchObject({ usage: null, turns: 0 });
+    expect(summarizeCodexEvents(line({ type: 'item.completed', item: { type: 'agent_message', text: 'x' } }))).toMatchObject({ usage: null, usageComplete: false, turns: 0 });
   });
 });
 

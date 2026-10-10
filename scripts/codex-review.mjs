@@ -117,7 +117,7 @@ const args = [codex, 'exec', '--json', '-s', 'read-only', '-c', 'windows.sandbox
 const result = spawnSync(process.execPath, args, { encoding: 'utf8', input: prompt, maxBuffer: 64 * 1024 * 1024 });
 
 // Uso somado de todos os turnos; ferramentas = só tipos reais de ferramenta (ADR 0006).
-const { threadId, answer, usage, toolCalls, turns } = summarizeCodexEvents(result.stdout);
+const { threadId, answer, usage, usageComplete, toolCalls, turns } = summarizeCodexEvents(result.stdout);
 
 // O teto vem antes da falha do processo: estouro sempre sai com código 4, mesmo se o Codex falhou.
 const tokens = usage ? usage.input_tokens + usage.output_tokens : null;
@@ -166,7 +166,7 @@ if (register) {
   const violations = [
     toolCalls.length > 0 ? `o Codex usou ferramentas (${toolCalls.join(', ')})` : null,
     turns !== 1 ? `a revisão teve ${turns} turnos (esperado 1)` : null,
-    tokens === null ? 'consumo de tokens não informado' : null,
+    !usageComplete ? 'consumo de tokens não informado (ou incompleto)' : null,
   ].filter(Boolean);
   if (violations.length > 0) {
     console.error(`codex-review: nada registrado: ${violations.join('; ')}.`);

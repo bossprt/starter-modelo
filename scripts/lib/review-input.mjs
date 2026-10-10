@@ -64,10 +64,12 @@ const TOOL_ITEM_TYPES = ['command_execution', 'file_change', 'mcp_tool_call', 'w
 
 const isCount = (value) => typeof value === 'number' && Number.isFinite(value) && value >= 0;
 
-/** Resume os eventos do codex exec --json: resposta final, uso somado de todos os turnos, ferramentas e turnos. */
+/**
+ * Resume os eventos do codex exec --json: resposta final, uso somado dos turnos com consumo informado,
+ * se a medição está completa (todo turno informou consumo), ferramentas e turnos.
+ */
 export function summarizeCodexEvents(stdout) {
-  const summary = { threadId: null, answer: '', usage: null, toolCalls: [], turns: 0 };
-  let incomplete = false;
+  const summary = { threadId: null, answer: '', usage: null, usageComplete: true, toolCalls: [], turns: 0 };
   for (const line of String(stdout ?? '').split('\n')) {
     let event;
     try {
@@ -82,9 +84,9 @@ export function summarizeCodexEvents(stdout) {
     if (event.type === 'turn.completed') {
       summary.turns += 1;
       const u = event.usage;
-      // Consumo incompleto (sem usage ou campo não numérico) anula a medição: nunca vira zero.
+      // Turno sem consumo válido não vira zero: marca a medição como incompleta e mantém o total conhecido.
       if (!u || !isCount(u.input_tokens) || !isCount(u.output_tokens)) {
-        incomplete = true;
+        summary.usageComplete = false;
         continue;
       }
       const previous = summary.usage ?? { input_tokens: 0, cached_input_tokens: 0, output_tokens: 0 };
@@ -95,7 +97,7 @@ export function summarizeCodexEvents(stdout) {
       };
     }
   }
-  if (incomplete) summary.usage = null;
+  if (summary.turns === 0) summary.usageComplete = false;
   return summary;
 }
 
