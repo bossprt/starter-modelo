@@ -280,7 +280,7 @@ describe('deriveProtection', () => {
   describe('vários checks exigidos', () => {
     const both = ['validate', 'revisao-registrada'];
     const withBoth = rulesetRules.map((rule) => (rule.type === 'required_status_checks'
-      ? { ...rule, parameters: { required_status_checks: [{ context: 'validate' }, { context: 'revisao-registrada' }] } } : rule));
+      ? { ...rule, parameters: { required_status_checks: [{ context: 'validate', integration_id: 15368 }, { context: 'revisao-registrada', integration_id: 15368 }] } } : rule));
 
     it('protegida quando o ruleset exige os dois checks', () => {
       const result = deriveProtection({ classic: notProtected, rules: { ok: true, data: withBoth, rulesets: activeRuleset } }, both);
@@ -296,6 +296,23 @@ describe('deriveProtection', () => {
 
     it('aceita um check como string (compatibilidade)', () => {
       expect(deriveProtection({ classic: notProtected, rules: { ok: true, data: rulesetRules, rulesets: activeRuleset } }, 'validate').state).toBe('protegida');
+    });
+  });
+
+  describe('origem do check', () => {
+    it('check de outro app não conta (ruleset)', () => {
+      const data = rulesetRules.map((rule) => (rule.type === 'required_status_checks'
+        ? { ...rule, parameters: { required_status_checks: [{ context: 'validate', integration_id: 999 }] } } : rule));
+      expect(deriveProtection({ classic: notProtected, rules: { ok: true, data, rulesets: activeRuleset } }, 'validate').state).toBe('desprotegida');
+    });
+    it('check sem app definido não conta (qualquer app poderia publicar)', () => {
+      const data = rulesetRules.map((rule) => (rule.type === 'required_status_checks'
+        ? { ...rule, parameters: { required_status_checks: [{ context: 'validate' }] } } : rule));
+      expect(deriveProtection({ classic: notProtected, rules: { ok: true, data, rulesets: activeRuleset } }, 'validate').state).toBe('desprotegida');
+    });
+    it('proteção clássica só com contexts (sem app) não conta', () => {
+      const data = { ...full, required_status_checks: { strict: false, contexts: ['validate'], checks: [] } };
+      expect(deriveProtection({ classic: { ok: true, data }, rules: noRules }, 'validate').state).toBe('desprotegida');
     });
   });
 
@@ -322,6 +339,14 @@ describe('deriveProtection', () => {
 });
 
 describe('deriveProjectStatus', () => {
+  it('dependência integrada sem evidência não libera a próxima', () => {
+    const tasks = [{ ...ci, validation: 'ci' }, { id: 'TASK-002', title: 'Segunda', validation: 'ci', depends_on: ['TASK-001'] }];
+    const mergedRed = pr({ state: 'MERGED', mergedAt: '2026-10-10T11:00:00Z', statusCheckRollup: RED });
+    const status = deriveProjectStatus({ tasks, prs: [mergedRed], pendencias: [], protection: null, requiredChecks: ['validate'] });
+    expect(status.tasks[0].state).toBe('integrada');
+    expect(status.next).toBeNull();
+  });
+
   it('aponta a próxima tarefa respeitando dependências', () => {
     const tasks = [ci, { id: 'TASK-002', title: 'Segunda entrega', validation: 'ci', depends_on: ['TASK-001'] }];
     const merged = pr({ state: 'MERGED', mergedAt: '2026-10-10T11:00:00Z' });

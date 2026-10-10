@@ -83,7 +83,7 @@ let core = readCore();
 // Mede execuções e minutos do mês, e execuções por PR (indicador de "um push por tarefa").
 // Com a API em 70% ou mais, não gasta mais requisições (regra de parada).
 let apiStopped = (apiPercent(core) ?? 0) >= QUOTA_STOP_PERCENT;
-const repo = apiStopped ? null : gh(['repo', 'view', '--json', 'nameWithOwner']);
+const repo = apiStopped ? null : gh(['repo', 'view', '--json', 'nameWithOwner,visibility']);
 let actions = apiStopped ? 'não consultado: API do GitHub em 70% ou mais' : 'gh indisponível';
 if (repo) {
   const month = new Date().toISOString().slice(0, 7);
@@ -120,7 +120,12 @@ for (const row of rows) {
   const value = row.percent === null ? 'n/d' : `${row.percent}%`;
   console.log(`  ${row.name.padEnd(26)} ${value.padEnd(7)} ${row.source}`);
 }
-console.log(`  ${'GitHub Actions'.padEnd(26)} grátis  repositório público, runner padrão — ${actions}`);
+// Minutos grátis e ilimitados só em repositório público (runner padrão); privado tem cota do plano.
+const visibility = String(repo?.visibility ?? '').toLowerCase();
+const actionsCost = visibility === 'public' ? 'grátis  repositório público, runner padrão'
+  : visibility === 'private' ? 'cota    repositório PRIVADO: minutos do plano (Free: 2.000/mês; ver servicos.md)'
+    : 'n/d     visibilidade não consultada';
+console.log(`  ${'GitHub Actions'.padEnd(26)} ${actionsCost} — ${actions}`);
 console.log('  n/d = não disponível. Plano e limite de cada serviço: docs/metrics/servicos.md');
 
 const alerts = quotaAlerts(rows);

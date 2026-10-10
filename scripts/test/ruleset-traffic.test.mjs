@@ -75,3 +75,15 @@ describe('tráfego', () => {
     expect(trafficAlerts(null, { clones: 100, forks: 3 })).toEqual([]);
   });
 });
+
+describe('tráfego: valor não disponível', () => {
+  it('ausente da API vira n/d na tabela, nunca zero', () => {
+    expect(formatTrafficRow({ date: '2026-10-17', views: null, uniqueViews: 3, clones: undefined, uniqueClones: 1, forks: 0 }))
+      .toBe('| 2026-10-17 | n/d | 3 | n/d | 1 | 0 |');
+  });
+  it('n/d na tabela é lido como null e não gera alerta', () => {
+    const rows = parseTrafficTable('| 2026-10-10 | 5 | 1 | n/d | n/d | n/d |\n| 2026-10-17 | 9 | 2 | 40 | 9 | 2 |');
+    expect(rows[0]).toMatchObject({ clones: null, forks: null });
+    expect(trafficAlerts(rows[0], rows[1])).toEqual([]);
+  });
+});

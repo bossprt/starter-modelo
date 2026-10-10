@@ -6,7 +6,7 @@ Estado do projeto: `npm run status` (não deduza estado lendo arquivos).
 
 ## Projeto novo (antes da primeira tarefa)
 
-Se `docs/PRODUCT.md` ainda tiver "A PREENCHER", o projeto não começou. Não construa nada.
+Se algum campo de `docs/PRODUCT.md` ainda estiver como "A PREENCHER", o projeto não começou. Não construa.
 Aplique `docs/regras/direcao.md`: peça ao dono a ideia do produto (problema, público, escopo,
 se é comercial); depois pesquise e apresente opções de stack (ADR 0001) e espere a escolha dele.
 Checklist do dono: `README.md` ("Começar um projeto novo").

@@ -9,7 +9,7 @@ import { spawnSync } from 'node:child_process';
 import { appendFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { formatTrafficRow, parseTrafficTable, trafficAlerts } from './lib/traffic.mjs';
+import { formatTrafficRow, parseTrafficTable, toNumber, trafficAlerts } from './lib/traffic.mjs';
 
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..');
 const FILE = join(ROOT, 'docs', 'metrics', 'trafego.md');
@@ -30,15 +30,14 @@ const repo = gh(['api', `repos/${name}`]);
 
 const current = {
   date: new Date().toISOString().slice(0, 10),
-  views: views.count ?? 0,
-  uniqueViews: views.uniques ?? 0,
-  clones: clones.count ?? 0,
-  uniqueClones: clones.uniques ?? 0,
-  forks: repo.forks_count ?? 0,
+  views: toNumber(views.count),
+  uniqueViews: toNumber(views.uniques),
+  clones: toNumber(clones.count),
+  uniqueClones: toNumber(clones.uniques),
+  forks: toNumber(repo.forks_count),
 };
 const previous = parseTrafficTable(readFileSync(FILE, 'utf8')).pop() ?? null;
-appendFileSync(FILE, `${formatTrafficRow(current)}\n`);
-console.log(`Registrado em docs/metrics/trafego.md: ${formatTrafficRow(current)}`);
+console.log(`Medição atual: ${formatTrafficRow(current)}`);
 console.log(previous ? `Anterior (${previous.date}): ${formatTrafficRow(previous)}` : 'Primeiro registro: sem comparação.');
 
 const reasons = trafficAlerts(previous, current);
@@ -64,14 +63,17 @@ if (reasons.length > 0) {
     '',
     '## Recomendação',
     '',
-    'Conferir em Insights → Traffic quem está clonando/forkando (referrers). Se o repositório não tem segredo, dado de cliente nem conteúdo vendável (docs/regras/repositorio-publico.md), manter público (A). Se tem algo que não deveria ser público, B — e tratar o que vazou (revogar segredos).',
+    'Conferir em Insights → Traffic a tendência e as origens das visitas (referrers e páginas populares; o GitHub não identifica quem clonou). Se o repositório não tem segredo, dado de cliente nem conteúdo vendável (docs/regras/repositorio-publico.md), manter público (A). Se tem algo que não deveria ser público, B — e tratar o que vazou (revogar segredos).',
     '',
     '## O que fica bloqueado',
     '',
     'Nada é bloqueado automaticamente; é uma decisão de exposição do repositório.',
   ].join('\n');
+  // A pendência é criada ANTES de gravar a medição: se falhar (gh sai do processo), nada é gravado
+  // e a próxima execução compara de novo com o mesmo registro anterior (o alerta não se perde).
   const issue = gh(['issue', 'create', '--label', 'depende-de-mim', '--title', `Tráfego: ${reasons.join('; ')} — manter público ou tornar privado?`, '--body-file', '-'], body);
   console.log(`Pendência aberta: ${issue}`);
   process.exitCode = 3;
 }
-console.log('Leve o registro para a main por PR (só documentação).');
+appendFileSync(FILE, `${formatTrafficRow(current)}\n`);
+console.log('Registrado em docs/metrics/trafego.md. Leve o registro para a main por PR (só documentação).');

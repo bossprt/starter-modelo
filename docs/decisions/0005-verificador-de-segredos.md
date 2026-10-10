@@ -28,7 +28,7 @@ READMEs dos projetos, docs.github.com (about-secret-scanning).
 
 ## Decisão
 
-1. **gitleaks CLI v8.30.1**, baixado do release oficial com **verificação de SHA-256** e rodado como passo
+1. **gitleaks CLI v8.30.1**, baixado do release oficial com **verificação de SHA-256** (a cada execução, também do cache) por `scripts/segredos.mjs`, rodado como passo
    do job `validate` (já obrigatório no ruleset), sobre os commits do PR (`base..head`), em todo PR —
    inclusive o atalho só-documentação. Falso positivo: `.gitleaksignore` com motivo, em PR de starter.
 2. **Proteções nativas do GitHub** (grátis em público): secret scanning e push protection ativos.
@@ -38,6 +38,6 @@ READMEs dos projetos, docs.github.com (about-secret-scanning).
 
 ## Consequências
 
-- Atualizar a versão do gitleaks exige trocar versão **e** SHA-256 no workflow (PR de starter).
+- Atualizar a versão do gitleaks exige trocar `VERSION` **e** os SHA-256 em `scripts/segredos.mjs` (PR de starter).
 - O passo usa a rede só para baixar o binário do GitHub Releases; não envia segredos a terceiros
   (por isso TruffleHog com verificação ativa ficou de fora como padrão).

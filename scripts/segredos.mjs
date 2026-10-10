@@ -2,12 +2,12 @@
 // Varredura de segredos com gitleaks (ADR 0005). Roda no CI (job validate) e localmente.
 // Uso: node scripts/segredos.mjs [--base <ref>] [--head <ref>]
 //   Com --base: varre só os commits base..head (PR). Sem --base: varre todo o histórico.
-// Baixa o binário do release oficial, confere o SHA-256 e guarda em .cache/gitleaks/ (ignorado pelo git).
+// Baixa o pacote do release oficial, confere o SHA-256 e guarda em .cache/gitleaks/ (ignorado pelo git).
 // Falso positivo: adicionar a linha indicada pelo gitleaks em .gitleaksignore, com o motivo, em PR de starter.
 
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -34,12 +34,15 @@ if (!asset) {
   process.exit(2);
 }
 
+// O pacote baixado fica em cache e é conferido (SHA-256) a CADA execução; o binário é extraído de novo
+// a partir dele, então um executável corrompido ou trocado no cache nunca é usado.
 const dir = join(ROOT, '.cache', 'gitleaks', VERSION);
-const binary = join(dir, process.platform === 'win32' ? 'gitleaks.exe' : 'gitleaks');
+const name = `gitleaks_${VERSION}_${asset[0]}`;
+const archive = join(dir, name);
+const sha256 = (data) => createHash('sha256').update(data).digest('hex');
+mkdirSync(dir, { recursive: true });
 
-if (!existsSync(binary)) {
-  mkdirSync(dir, { recursive: true });
-  const name = `gitleaks_${VERSION}_${asset[0]}`;
+if (!existsSync(archive) || sha256(readFileSync(archive)) !== asset[1]) {
   const url = `https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/${name}`;
   const response = await fetch(url);
   if (!response.ok) {
@@ -47,21 +50,24 @@ if (!existsSync(binary)) {
     process.exit(2);
   }
   const data = Buffer.from(await response.arrayBuffer());
-  const sha = createHash('sha256').update(data).digest('hex');
-  if (sha !== asset[1]) {
-    console.error(`segredos: SHA-256 não confere para ${name} (esperado ${asset[1]}, obtido ${sha}). Abortado.`);
+  if (sha256(data) !== asset[1]) {
+    console.error(`segredos: SHA-256 não confere para ${name} (esperado ${asset[1]}, obtido ${sha256(data)}). Abortado.`);
     process.exit(2);
   }
-  const archive = join(dir, name);
   writeFileSync(archive, data);
-  // tar extrai .tar.gz; no Windows usa o tar.exe do sistema (bsdtar, abre .zip). O tar do Git Bash
-  // (GNU) leria "C:" como host remoto.
-  const tar = process.platform === 'win32' ? join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe') : 'tar';
-  const extract = spawnSync(tar, ['-xf', archive, '-C', dir], { encoding: 'utf8' });
-  if (extract.status !== 0 || !existsSync(binary)) {
-    console.error(`segredos: falha ao extrair ${name}: ${extract.stderr}`);
-    process.exit(2);
-  }
+}
+
+const extracted = join(dir, 'bin');
+rmSync(extracted, { recursive: true, force: true });
+mkdirSync(extracted, { recursive: true });
+// tar extrai .tar.gz; no Windows usa o tar.exe do sistema (bsdtar, abre .zip). O tar do Git Bash
+// (GNU) leria "C:" como host remoto.
+const tar = process.platform === 'win32' ? join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe') : 'tar';
+const extract = spawnSync(tar, ['-xf', archive, '-C', extracted], { encoding: 'utf8' });
+const binary = join(extracted, process.platform === 'win32' ? 'gitleaks.exe' : 'gitleaks');
+if (extract.status !== 0 || !existsSync(binary)) {
+  console.error(`segredos: falha ao extrair ${name}: ${extract.stderr}`);
+  process.exit(2);
 }
 
 const base = arg('--base');

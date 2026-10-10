@@ -51,7 +51,7 @@ Configurado em `.github/workflows/validate.yml`:
 ## 6. Sessões e revisões econômicas
 
 - Sessão nova do Claude Code (prova de continuidade, tarefa delegada): use `node scripts/sessao-agente.mjs`.
-  Ele isola a configuração global (plugins, skills, MCP, hooks). Medição de 2026-10-10, com a mesma pergunta:
-  263.180 tokens de entrada sem isolamento, 20.409 com isolamento (−92%).
+  Ele isola a configuração global (plugins, skills, MCP, hooks). Evidência do piloto (2026-10-10), mesma pergunta:
+  263.180 tokens de entrada sem isolamento, 20.409 com isolamento (−92%). Meça no seu projeto com o próprio script.
 - Revisão do Codex: uma por tarefa, antes do push. Cada revisão consome de cerca de 30 mil a 270 mil tokens.
 - `--bare` do Claude Code exige chave de API (cobrança separada): não use sem decisão do dono.

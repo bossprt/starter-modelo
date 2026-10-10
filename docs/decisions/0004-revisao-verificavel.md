@@ -28,10 +28,18 @@ não tem defeito aberto. Até aqui, a evidência da revisão era um texto no PR 
    registro, e o `npm run status` mostra "desprotegida". No piloto (bossprt/starter-piloto#22),
    um PR de código sem registro ficou `BLOCKED` com o ruleset aplicado.
 
+## Checks desatualizados (decisão do dono)
+
+O ruleset gerado usa `strict_required_status_checks_policy: false`: o PR não precisa estar atualizado
+com a main para integrar. Com `true`, todo merge na main obriga os outros PRs a atualizar a branch,
+o que muda a árvore, invalida o registro da revisão e exige nova revisão do Codex, novo push e novo CI.
+Risco aceito no padrão: dois PRs que passam sozinhos podem quebrar juntos; o CI do PR seguinte pega.
+Para trocar, mude `buildRulesetBody` em `scripts/lib/ruleset.mjs` e rode `npm run ruleset` de novo.
+
 ## Limitação: os agentes usam a mesma credencial
 
 - O Claude Code, o Codex e o dono usam o mesmo token do GitHub (`gh` do dono). Para o GitHub,
-  todo commit, PR, etiqueta e merge é de `bossprt`. A autoria real só aparece no trailer `Agente:`,
+  todo commit, PR, etiqueta e merge é do dono do token. A autoria real só aparece no trailer `Agente:`,
   nos logs locais (`~/.codex/sessions`, transcrições do Claude Code) e nos registros dos PRs.
 - O registro é **declarativo**: quem tem o token pode escrever um commit com `Codex-Review: sem-defeito`
   sem que o Codex tenha revisado. O CI garante que o registro existe e cobre a árvore final.

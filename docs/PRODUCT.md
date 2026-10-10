@@ -4,7 +4,8 @@ comercial: A PREENCHER (sim ou não; "sim" aciona docs/regras/custos.md)
 
 <!-- Modelo em branco. Quem preenche é o dono (decisão de direção: docs/regras/direcao.md).
      O agente pode propor um rascunho depois de ouvir a ideia, mas não decide por conta própria.
-     Enquanto houver "A PREENCHER" neste arquivo, o projeto não começou. -->
+     Enquanto algum campo abaixo estiver por preencher, o projeto não começou.
+     Ao preencher, apague também este comentário. -->
 
 ## Problema
 

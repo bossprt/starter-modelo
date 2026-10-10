@@ -3,6 +3,7 @@
 // Evidência vem só do histórico de PRs, nunca de branches.
 
 import { verifyReviewRecord } from './review-record.mjs';
+import { GITHUB_ACTIONS_APP_ID } from './ruleset.mjs';
 
 // PRs integrados antes desta data podem usar a etiqueta revisao-sem-defeito no lugar do registro (ADR 0004).
 export const REVIEW_RECORD_REQUIRED_SINCE = '2026-10-10T22:00:00Z';
@@ -169,11 +170,11 @@ const requirementLabel = (key) => (key === 'pr' ? 'PR obrigatório' : `check "${
 const normalizeChecks = (requiredChecks) => (Array.isArray(requiredChecks) ? requiredChecks : [requiredChecks]);
 
 /** Requisitos atendidos pela proteção clássica. */
+// Só vale check publicado pelo GitHub Actions: outro app (ou qualquer app) poderia publicar o mesmo nome.
 function classicRequirements(data, requiredChecks) {
-  const contexts = [
-    ...(data.required_status_checks?.contexts ?? []),
-    ...((data.required_status_checks?.checks ?? []).map((check) => check.context)),
-  ];
+  const contexts = (data.required_status_checks?.checks ?? [])
+    .filter((check) => check.app_id === GITHUB_ACTIONS_APP_ID)
+    .map((check) => check.context);
   const enforced = data.enforce_admins?.enabled === true;
   const found = {};
   if (data.required_pull_request_reviews) found.pr = { source: 'proteção clássica', enforced };
@@ -208,7 +209,9 @@ function rulesetRequirements(rules, rulesets, requiredChecks) {
     const keys = [];
     if (rule.type === 'pull_request') keys.push('pr');
     if (rule.type === 'required_status_checks') {
-      const contexts = (rule.parameters?.required_status_checks ?? []).map((check) => check.context);
+      const contexts = (rule.parameters?.required_status_checks ?? [])
+        .filter((check) => check.integration_id === GITHUB_ACTIONS_APP_ID)
+        .map((check) => check.context);
       for (const name of requiredChecks) if (contexts.includes(name)) keys.push(checkKey(name));
     }
     for (const key of keys) {
@@ -274,7 +277,8 @@ export function deriveProtection(input, requiredChecks) {
 export function deriveProjectStatus(input) {
   const tasks = [...input.tasks].sort((a, b) => a.id.localeCompare(b.id));
   const states = tasks.map((task) => ({ id: task.id, title: task.title, depends_on: task.depends_on ?? [], ...deriveTaskState(task, input.prs, input.pendencias) }));
-  const done = new Set(states.filter((s) => s.state === 'integrada' || s.state === 'validada').map((s) => s.id));
+  // Dependência só libera a próxima quando validada (integrada sem evidência não conta).
+  const done = new Set(states.filter((s) => s.state === 'validada').map((s) => s.id));
   const next = states.find((s) => s.state === 'planejada' && s.depends_on.every((dep) => done.has(dep))) ?? null;
   const pendencias = input.pendencias === null
     ? null

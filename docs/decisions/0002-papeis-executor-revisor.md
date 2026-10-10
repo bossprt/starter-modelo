@@ -6,7 +6,7 @@
 ## Contexto
 
 No projeto piloto (bossprt/starter-piloto), a rodada 1 testou o handoff de execução para o Codex (Etapa 7: "Leia o AGENTS.md e execute a TASK-002").
-Resultado do experimento, registrado em `docs/metrics/sessions.md` e no PR bossprt/starter-piloto#10:
+Resultado do experimento, registrado no repositório do piloto (`docs/metrics/sessions.md` e PR bossprt/starter-piloto#10):
 - Com o sandbox `elevated` do Codex CLI 0.162.1 no Windows, nenhum comando de shell roda
   (`helper_unknown_error: setup refresh had errors`; os error 32 em `node_repl.exe`; bug aberto
   em openai/codex#52501 e relatos relacionados). Pendência #5.
