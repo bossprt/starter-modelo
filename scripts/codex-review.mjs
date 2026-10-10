@@ -13,7 +13,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { DEFAULT_MAX_TOKENS, DIFF_EXCLUDES, adrDecision, buildReviewPrompt, preflight } from './lib/review-input.mjs';
+import { DIFF_EXCLUDES, adrDecision, buildReviewPrompt, parseMaxTokens, preflight, summarizeCodexEvents } from './lib/review-input.mjs';
 import { buildRecordMessage, parseVerdict } from './lib/review-record.mjs';
 import { QUOTA_STOP_PERCENT, lastCodexRateLimits } from './lib/usage.mjs';
 
@@ -25,7 +25,11 @@ function arg(name, fallback) {
 const base = arg('--base', 'main');
 const task = arg('--task', '');
 const register = process.argv.includes('--registrar');
-const maxTokens = Number(process.env.CODEX_REVIEW_MAX_TOKENS) || DEFAULT_MAX_TOKENS;
+const maxTokens = parseMaxTokens(process.env.CODEX_REVIEW_MAX_TOKENS);
+if (maxTokens === null) {
+  console.error('codex-review: CODEX_REVIEW_MAX_TOKENS deve ser um inteiro positivo (ex.: 90000).');
+  process.exit(2);
+}
 
 function git(args) {
   const result = spawnSync('git', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
@@ -127,22 +131,8 @@ const args = [codex, 'exec', '--json', '-s', 'read-only', '-c', 'windows.sandbox
   '-c', 'mcp_servers={}', '-c', 'project_doc_max_bytes=0', '-'];
 const result = spawnSync(process.execPath, args, { encoding: 'utf8', input: prompt, maxBuffer: 64 * 1024 * 1024 });
 
-let threadId = null;
-let answer = '';
-let usage = null;
-let toolCalls = 0;
-for (const line of `${result.stdout ?? ''}`.split('\n')) {
-  let event;
-  try {
-    event = JSON.parse(line);
-  } catch {
-    continue;
-  }
-  if (event.type === 'thread.started') threadId = event.thread_id;
-  if (event.type === 'item.completed' && event.item?.type === 'agent_message') answer = event.item.text;
-  if (event.type === 'item.completed' && event.item && event.item.type !== 'agent_message' && event.item.type !== 'reasoning') toolCalls += 1;
-  if (event.type === 'turn.completed') usage = event.usage;
-}
+// Uso somado de todos os turnos; ferramentas = só tipos reais de ferramenta (ADR 0006).
+const { threadId, answer, usage, toolCalls, turns } = summarizeCodexEvents(result.stdout);
 
 if (result.status !== 0 || answer.trim() === '') {
   console.error(`codex-review: Codex falhou (código ${result.status}). Registre "revisão: não realizada".`);
@@ -174,7 +164,7 @@ const verdict = parseVerdict(answer);
 console.log(answer.trim());
 console.log('');
 console.log(`veredito: ${verdict ?? 'não informado pelo Codex'}`);
-console.log(`tokens usados pelo Codex: ${tokens ?? 'não disponível'}${usage ? ` (entrada ${usage.input_tokens}, cache ${usage.cached_input_tokens}, saída ${usage.output_tokens})` : ''} · teto ${maxTokens} · ferramentas usadas: ${toolCalls}`);
+console.log(`tokens usados pelo Codex: ${tokens ?? 'não disponível'}${usage ? ` (entrada ${usage.input_tokens}, cache ${usage.cached_input_tokens}, saída ${usage.output_tokens})` : ''} · teto ${maxTokens} · turnos: ${turns} · ferramentas: ${toolCalls.length === 0 ? 'nenhuma' : toolCalls.join(', ')}`);
 if (limits) {
   console.log(`cota do Codex: 5h ${limits.fiveHour ?? '?'}% · semanal ${limits.weekly ?? '?'}%`);
   if ((limits.fiveHour ?? 0) >= QUOTA_STOP_PERCENT || (limits.weekly ?? 0) >= QUOTA_STOP_PERCENT) {
@@ -185,6 +175,16 @@ if (limits) {
 }
 
 if (register) {
+  // ADR 0006: só registra revisão de um turno, sem ferramentas e com consumo medido.
+  const violations = [
+    toolCalls.length > 0 ? `o Codex usou ferramentas (${toolCalls.join(', ')})` : null,
+    turns !== 1 ? `a revisão teve ${turns} turnos (esperado 1)` : null,
+    tokens === null ? 'consumo de tokens não informado' : null,
+  ].filter(Boolean);
+  if (violations.length > 0) {
+    console.error(`codex-review: nada registrado: ${violations.join('; ')}.`);
+    process.exit(1);
+  }
   if (!verdict) {
     console.error('codex-review: sem linha VEREDITO na resposta; nada registrado. Rode de novo.');
     process.exit(1);

@@ -49,3 +49,43 @@ export function preflight(prompt, maxTokens = DEFAULT_MAX_TOKENS) {
   const estimated = CODEX_BASE_TOKENS + estimateTokens(prompt);
   return { estimated, maxTokens, ok: estimated <= maxTokens };
 }
+
+/** Teto vindo do ambiente: ausente = padrão; inteiro positivo = esse valor; qualquer outra coisa = null (inválido). */
+export function parseMaxTokens(value) {
+  if (value === undefined || String(value).trim() === '') return DEFAULT_MAX_TOKENS;
+  const text = String(value).trim();
+  if (!/^\d+$/.test(text)) return null;
+  const number = Number(text);
+  return Number.isSafeInteger(number) && number > 0 ? number : null;
+}
+
+// Tipos de item do codex exec --json que são uso de ferramenta (qualquer um invalida a revisão sem ferramentas).
+const TOOL_ITEM_TYPES = ['command_execution', 'file_change', 'mcp_tool_call', 'web_search', 'collab_tool_call', 'tool_call'];
+
+/** Resume os eventos do codex exec --json: resposta final, uso somado de todos os turnos, ferramentas e turnos. */
+export function summarizeCodexEvents(stdout) {
+  const summary = { threadId: null, answer: '', usage: null, toolCalls: [], turns: 0 };
+  for (const line of String(stdout ?? '').split('\n')) {
+    let event;
+    try {
+      event = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (event.type === 'thread.started') summary.threadId = event.thread_id;
+    if (event.type === 'item.completed' && event.item?.type === 'agent_message') summary.answer = event.item.text ?? '';
+    if ((event.type === 'item.started' || event.type === 'item.completed') && TOOL_ITEM_TYPES.includes(event.item?.type)
+      && !summary.toolCalls.includes(event.item.type)) summary.toolCalls.push(event.item.type);
+    if (event.type === 'turn.completed') {
+      summary.turns += 1;
+      const u = event.usage ?? {};
+      const previous = summary.usage ?? { input_tokens: 0, cached_input_tokens: 0, output_tokens: 0 };
+      summary.usage = {
+        input_tokens: previous.input_tokens + (u.input_tokens ?? 0),
+        cached_input_tokens: previous.cached_input_tokens + (u.cached_input_tokens ?? 0),
+        output_tokens: previous.output_tokens + (u.output_tokens ?? 0),
+      };
+    }
+  }
+  return summary;
+}

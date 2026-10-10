@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CODEX_BASE_TOKENS, adrDecision, buildReviewPrompt, estimateTokens, preflight } from '../lib/review-input.mjs';
+import { CODEX_BASE_TOKENS, DEFAULT_MAX_TOKENS, adrDecision, buildReviewPrompt, estimateTokens, parseMaxTokens, preflight, summarizeCodexEvents } from '../lib/review-input.mjs';
 
 describe('estimateTokens', () => {
   it('~3 caracteres por token, arredondando para cima', () => {
@@ -38,5 +38,41 @@ describe('preflight (teto)', () => {
   });
   it('acima do teto não chama o Codex', () => {
     expect(preflight('x'.repeat(150_000), 60_000).ok).toBe(false);
+  });
+});
+
+describe('parseMaxTokens', () => {
+  it('ausente usa o padrão; inteiro positivo vale', () => {
+    expect(parseMaxTokens(undefined)).toBe(DEFAULT_MAX_TOKENS);
+    expect(parseMaxTokens('')).toBe(DEFAULT_MAX_TOKENS);
+    expect(parseMaxTokens('90000')).toBe(90000);
+  });
+  it('Infinity, negativo, zero, decimal e texto são inválidos', () => {
+    for (const value of ['Infinity', '-5', '0', '1.5', 'abc', '1e9']) expect(parseMaxTokens(value)).toBeNull();
+  });
+});
+
+describe('summarizeCodexEvents', () => {
+  const line = (event) => JSON.stringify(event);
+  it('soma o uso de todos os turnos e conta turnos', () => {
+    const out = [
+      line({ type: 'thread.started', thread_id: 't1' }),
+      line({ type: 'turn.completed', usage: { input_tokens: 100, cached_input_tokens: 10, output_tokens: 5 } }),
+      line({ type: 'item.completed', item: { type: 'agent_message', text: 'ok' } }),
+      line({ type: 'turn.completed', usage: { input_tokens: 50, cached_input_tokens: 0, output_tokens: 1 } }),
+    ].join('\n');
+    expect(summarizeCodexEvents(out)).toEqual({ threadId: 't1', answer: 'ok', usage: { input_tokens: 150, cached_input_tokens: 10, output_tokens: 6 }, toolCalls: [], turns: 2 });
+  });
+  it('registra ferramenta real e ignora itens que não são ferramenta', () => {
+    const out = [
+      line({ type: 'item.completed', item: { type: 'reasoning' } }),
+      line({ type: 'item.completed', item: { type: 'todo_list' } }),
+      line({ type: 'item.started', item: { type: 'command_execution' } }),
+      line({ type: 'item.completed', item: { type: 'command_execution' } }),
+    ].join('\n');
+    expect(summarizeCodexEvents(out).toolCalls).toEqual(['command_execution']);
+  });
+  it('sem turn.completed: uso nulo (consumo não informado)', () => {
+    expect(summarizeCodexEvents(line({ type: 'item.completed', item: { type: 'agent_message', text: 'x' } }))).toMatchObject({ usage: null, turns: 0 });
   });
 });
