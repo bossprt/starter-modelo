@@ -62,9 +62,12 @@ export function parseMaxTokens(value) {
 // Tipos de item do codex exec --json que são uso de ferramenta (qualquer um invalida a revisão sem ferramentas).
 const TOOL_ITEM_TYPES = ['command_execution', 'file_change', 'mcp_tool_call', 'web_search', 'collab_tool_call', 'tool_call'];
 
+const isCount = (value) => typeof value === 'number' && Number.isFinite(value) && value >= 0;
+
 /** Resume os eventos do codex exec --json: resposta final, uso somado de todos os turnos, ferramentas e turnos. */
 export function summarizeCodexEvents(stdout) {
   const summary = { threadId: null, answer: '', usage: null, toolCalls: [], turns: 0 };
+  let incomplete = false;
   for (const line of String(stdout ?? '').split('\n')) {
     let event;
     try {
@@ -78,14 +81,20 @@ export function summarizeCodexEvents(stdout) {
       && !summary.toolCalls.includes(event.item.type)) summary.toolCalls.push(event.item.type);
     if (event.type === 'turn.completed') {
       summary.turns += 1;
-      const u = event.usage ?? {};
+      const u = event.usage;
+      // Consumo incompleto (sem usage ou campo não numérico) anula a medição: nunca vira zero.
+      if (!u || !isCount(u.input_tokens) || !isCount(u.output_tokens)) {
+        incomplete = true;
+        continue;
+      }
       const previous = summary.usage ?? { input_tokens: 0, cached_input_tokens: 0, output_tokens: 0 };
       summary.usage = {
-        input_tokens: previous.input_tokens + (u.input_tokens ?? 0),
-        cached_input_tokens: previous.cached_input_tokens + (u.cached_input_tokens ?? 0),
-        output_tokens: previous.output_tokens + (u.output_tokens ?? 0),
+        input_tokens: previous.input_tokens + u.input_tokens,
+        cached_input_tokens: previous.cached_input_tokens + (isCount(u.cached_input_tokens) ? u.cached_input_tokens : 0),
+        output_tokens: previous.output_tokens + u.output_tokens,
       };
     }
   }
+  if (incomplete) summary.usage = null;
   return summary;
 }

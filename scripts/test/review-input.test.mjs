@@ -72,6 +72,13 @@ describe('summarizeCodexEvents', () => {
     ].join('\n');
     expect(summarizeCodexEvents(out).toolCalls).toEqual(['command_execution']);
   });
+  it('turn.completed sem usage ou com consumo parcial: uso nulo, nunca zero', () => {
+    expect(summarizeCodexEvents(line({ type: 'turn.completed' }))).toMatchObject({ usage: null, turns: 1 });
+    expect(summarizeCodexEvents(line({ type: 'turn.completed', usage: { input_tokens: 10 } })).usage).toBeNull();
+    const mixed = [line({ type: 'turn.completed', usage: { input_tokens: 10, output_tokens: 1 } }), line({ type: 'turn.completed', usage: { input_tokens: 'x', output_tokens: 1 } })].join('
+');
+    expect(summarizeCodexEvents(mixed).usage).toBeNull();
+  });
   it('sem turn.completed: uso nulo (consumo não informado)', () => {
     expect(summarizeCodexEvents(line({ type: 'item.completed', item: { type: 'agent_message', text: 'x' } }))).toMatchObject({ usage: null, turns: 0 });
   });
