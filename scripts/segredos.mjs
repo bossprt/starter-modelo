@@ -54,8 +54,10 @@ if (!existsSync(binary)) {
   }
   const archive = join(dir, name);
   writeFileSync(archive, data);
-  // tar extrai .tar.gz e, no Windows (bsdtar), também .zip.
-  const extract = spawnSync('tar', ['-xf', archive, '-C', dir], { encoding: 'utf8' });
+  // tar extrai .tar.gz; no Windows usa o tar.exe do sistema (bsdtar, abre .zip). O tar do Git Bash
+  // (GNU) leria "C:" como host remoto.
+  const tar = process.platform === 'win32' ? join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe') : 'tar';
+  const extract = spawnSync(tar, ['-xf', archive, '-C', dir], { encoding: 'utf8' });
   if (extract.status !== 0 || !existsSync(binary)) {
     console.error(`segredos: falha ao extrair ${name}: ${extract.stderr}`);
     process.exit(2);
