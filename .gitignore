@@ -1,0 +1,7 @@
+node_modules/
+dist/
+coverage/
+graphify-out/
+.claude/settings.local.json
+.agent-logs/
+.cache/
