@@ -56,7 +56,8 @@ Regras gerais:
 6. Commit (com `Agente:`) e revisão do Codex **antes do push**, em segundo plano (demora minutos):
    `node scripts/codex-review.mjs --task TASK-NNN --registrar`. Com defeito real: corrigir, commitar
    e revisar de novo (o registro só vale no topo). Registrar o descartado e o porquê no PR.
-   Codex falhou: "revisão: não realizada" + causa; a tarefa não é integrada automaticamente.
+   Codex falhou: "revisão: não realizada" + causa. Código 4 = acima do teto (ADR 0006): abra pendência
+   (dividir o PR ou o dono subir o teto) e não insista; a tarefa não é integrada automaticamente.
 7. Um push, PR com "TASK-NNN" no título; corpo com critérios atendidos, seção "Revisão"
    (apontado, corrigido, descartado) e linhas `Executor:` / `Revisor:`.
 8. Integrar (squash, apagar branch) só nas condições da regra de coordenação.
@@ -71,7 +72,7 @@ Regras gerais:
 | Estado do projeto / próxima tarefa | `npm run status` (não leia arquivos para isso) |
 | Entender o produto e o fora de escopo | `docs/PRODUCT.md` |
 | Restrições técnicas | `docs/ARCHITECTURE.md` |
-| Stack / papéis / humano / revisão / segredos | `docs/decisions/` (0001 a 0005) |
+| Stack / papéis / humano / revisão / segredos / teto | `docs/decisions/` (0001 a 0006) |
 | Decisão de direção (o que construir, qual ferramenta) | `docs/regras/direcao.md` |
 | Escolher ferramenta, biblioteca ou arquitetura | `docs/regras/pesquisa.md` e `docs/regras/ferramentas.md` |
 | Projeto passar a ser comercial | `docs/regras/custos.md` |
