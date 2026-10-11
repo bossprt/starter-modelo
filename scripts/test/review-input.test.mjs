@@ -74,10 +74,16 @@ describe('summarizeCodexEvents', () => {
   });
   it('turn.completed sem usage ou com consumo parcial: uso nulo, nunca zero', () => {
     expect(summarizeCodexEvents(line({ type: 'turn.completed' }))).toMatchObject({ usage: null, usageComplete: false, turns: 1 });
-    expect(summarizeCodexEvents(line({ type: 'turn.completed', usage: { input_tokens: 10 } }))).toMatchObject({ usage: null, usageComplete: false });
+    // Só a entrada informada: ela conta (mínimo conhecido) e a medição fica incompleta.
+    expect(summarizeCodexEvents(line({ type: 'turn.completed', usage: { input_tokens: 10 } })))
+      .toMatchObject({ usage: { input_tokens: 10, cached_input_tokens: 0, output_tokens: 0 }, usageComplete: false });
+    // Consumo parcial já acima do teto: o mínimo conhecido aciona o teto (código 4 no script).
+    const partial = summarizeCodexEvents(line({ type: 'turn.completed', usage: { input_tokens: 70000, output_tokens: 'x' } }));
+    expect(partial).toMatchObject({ usageComplete: false });
+    expect(partial.usage.input_tokens + partial.usage.output_tokens).toBeGreaterThan(DEFAULT_MAX_TOKENS);
     const mixed = [line({ type: 'turn.completed', usage: { input_tokens: 10, output_tokens: 1 } }), line({ type: 'turn.completed', usage: { input_tokens: 'x', output_tokens: 1 } })].join('\n');
     // O total já medido é mantido (para o teto); a medição fica incompleta (impede o registro).
-    expect(summarizeCodexEvents(mixed)).toMatchObject({ usage: { input_tokens: 10, output_tokens: 1 }, usageComplete: false });
+    expect(summarizeCodexEvents(mixed)).toMatchObject({ usage: { input_tokens: 10, output_tokens: 2 }, usageComplete: false });
   });
   it('sem turn.completed: uso nulo (consumo não informado)', () => {
     expect(summarizeCodexEvents(line({ type: 'item.completed', item: { type: 'agent_message', text: 'x' } }))).toMatchObject({ usage: null, usageComplete: false, turns: 0 });

@@ -83,18 +83,15 @@ export function summarizeCodexEvents(stdout) {
       && !summary.toolCalls.includes(event.item.type)) summary.toolCalls.push(event.item.type);
     if (event.type === 'turn.completed') {
       summary.turns += 1;
-      const u = event.usage;
-      // Turno sem consumo válido não vira zero: marca a medição como incompleta e mantém o total conhecido.
-      if (!u || !isCount(u.input_tokens) || !isCount(u.output_tokens)) {
-        summary.usageComplete = false;
-        continue;
+      const u = event.usage ?? {};
+      // Cada contador soma sozinho quando é válido: o mínimo conhecido vale para o teto. Contador ausente ou
+      // inválido não vira zero; só marca a medição como incompleta (o que impede o registro).
+      if (!isCount(u.input_tokens) || !isCount(u.output_tokens)) summary.usageComplete = false;
+      for (const key of ['input_tokens', 'cached_input_tokens', 'output_tokens']) {
+        if (!isCount(u[key])) continue;
+        summary.usage ??= { input_tokens: 0, cached_input_tokens: 0, output_tokens: 0 };
+        summary.usage[key] += u[key];
       }
-      const previous = summary.usage ?? { input_tokens: 0, cached_input_tokens: 0, output_tokens: 0 };
-      summary.usage = {
-        input_tokens: previous.input_tokens + u.input_tokens,
-        cached_input_tokens: previous.cached_input_tokens + (isCount(u.cached_input_tokens) ? u.cached_input_tokens : 0),
-        output_tokens: previous.output_tokens + u.output_tokens,
-      };
     }
   }
   if (summary.turns === 0) summary.usageComplete = false;
