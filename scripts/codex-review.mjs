@@ -147,6 +147,17 @@ function readRateLimits(id) {
 }
 const limits = readRateLimits(threadId);
 
+// ADR 0006: revisão só vale com um turno, sem ferramentas e com consumo medido — com ou sem --registrar.
+const violations = [
+  toolCalls.length > 0 ? `o Codex usou ferramentas (${toolCalls.join(', ')})` : null,
+  turns !== 1 ? `a revisão teve ${turns} turnos (esperado 1)` : null,
+  !usageComplete ? 'consumo de tokens não informado (ou incompleto)' : null,
+].filter(Boolean);
+if (violations.length > 0) {
+  console.error(`codex-review: revisão inválida, ${violations.join('; ')} (tokens: ${tokens ?? 'não disponível'}). Veredito descartado, nada registrado.`);
+  process.exit(1);
+}
+
 const verdict = parseVerdict(answer);
 console.log(answer.trim());
 console.log('');
@@ -162,16 +173,6 @@ if (limits) {
 }
 
 if (register) {
-  // ADR 0006: só registra revisão de um turno, sem ferramentas e com consumo medido.
-  const violations = [
-    toolCalls.length > 0 ? `o Codex usou ferramentas (${toolCalls.join(', ')})` : null,
-    turns !== 1 ? `a revisão teve ${turns} turnos (esperado 1)` : null,
-    !usageComplete ? 'consumo de tokens não informado (ou incompleto)' : null,
-  ].filter(Boolean);
-  if (violations.length > 0) {
-    console.error(`codex-review: nada registrado: ${violations.join('; ')}.`);
-    process.exit(1);
-  }
   if (!verdict) {
     console.error('codex-review: sem linha VEREDITO na resposta; nada registrado. Rode de novo.');
     process.exit(1);
